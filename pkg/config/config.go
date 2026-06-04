@@ -1,0 +1,39 @@
+package config
+
+import (
+	"os"
+
+	"gopkg.in/yaml.v3"
+)
+
+type AgentConfig struct {
+	Name         string   `yaml:"name"`
+	Email        string   `yaml:"email"`
+	Role         string   `yaml:"role"`
+	SystemPrompt string   `yaml:"system_prompt"`
+	Tools        []string `yaml:"tools"`
+	Model        string   `yaml:"model,omitempty"`
+}
+
+type Config struct {
+	RepoURL    string        `yaml:"repo_url"`
+	SSHKeyPath string        `yaml:"ssh_key_path"`
+	UserName   string        `yaml:"user_name"`
+	UserEmail  string        `yaml:"user_email"`
+	Model      string        `yaml:"model"`
+	Agents     []AgentConfig `yaml:"agents"`
+}
+
+func LoadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
