@@ -16,12 +16,13 @@ type AgentConfig struct {
 }
 
 type Config struct {
-	RepoURL    string        `yaml:"repo_url"`
-	SSHKeyPath string        `yaml:"ssh_key_path"`
-	UserName   string        `yaml:"user_name"`
-	UserEmail  string        `yaml:"user_email"`
-	Model      string        `yaml:"model"`
-	Agents     []AgentConfig `yaml:"agents"`
+	CompanyName string        `yaml:"company_name"`
+	MailDomain  string        `yaml:"mail_domain"`
+	SSHKeyPath  string        `yaml:"ssh_key_path"`
+	UserName    string        `yaml:"user_name"`
+	UserEmail   string        `yaml:"user_email"`
+	Model       string        `yaml:"model"`
+	Agents      []AgentConfig `yaml:"agents"`
 }
 
 func LoadConfig(path string) (*Config, error) {

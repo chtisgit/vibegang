@@ -13,17 +13,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func generateEmail(name string, existing map[string]bool) string {
+func generateEmail(name string, domain string, existing map[string]bool) string {
 	parts := strings.Fields(strings.ToLower(name))
 	base := "agent"
 	if len(parts) > 0 {
 		base = strings.Join(parts, ".")
 	}
 
-	email := base + "@local"
+	if domain == "" {
+		domain = "vibegang.local"
+	}
+
+	email := base + "@" + domain
 	counter := 1
 	for existing[email] {
-		email = fmt.Sprintf("%s%d@local", base, counter)
+		email = fmt.Sprintf("%s%d@%s", base, counter, domain)
 		counter++
 	}
 	return email
@@ -61,18 +65,22 @@ func runSetup() {
 	if cfg, err := config.LoadConfig("vibegang.yaml"); err == nil {
 		loadedCfg = *cfg
 	} else {
-		loadedCfg.RepoURL = "git@github.com:user/project.git"
 		loadedCfg.SSHKeyPath = "<none>"
 	}
 
-	var repoUrl, sshKeyPath string
+	var companyName, mailDomain string
+	var sshKeyPath string
 	var userName, userEmail string
 	var pmName, pmEmail string
 	var maintName, maintEmail string
 	var secName, secEmail string
 	var model string
 
-	repoUrl = loadedCfg.RepoURL
+	companyName = loadedCfg.CompanyName
+	mailDomain = loadedCfg.MailDomain
+	if mailDomain == "" {
+		mailDomain = "vibegang.local"
+	}
 	sshKeyPath = loadedCfg.SSHKeyPath
 	userName = loadedCfg.UserName
 	userEmail = loadedCfg.UserEmail
@@ -110,7 +118,7 @@ func runSetup() {
 
 		nameInput.SetChangedFunc(func(text string) {
 			if !emailInput.HasFocus() {
-				email := generateEmail(text, usedEmails)
+				email := generateEmail(text, mailDomain, usedEmails)
 				emailInput.SetText(email)
 			}
 			if updatePreview != nil {
@@ -157,19 +165,6 @@ func runSetup() {
 	}
 	sshKeyPath = sshKeys[initialKeyIndex]
 
-	form.AddInputField("Repo URL", repoUrl, 40, nil, func(text string) {
-		repoUrl = text
-		if updatePreview != nil {
-			updatePreview()
-		}
-	})
-	form.AddDropDown("SSH Key Path", sshKeys, initialKeyIndex, func(option string, optionIndex int) {
-		sshKeyPath = option
-		if updatePreview != nil {
-			updatePreview()
-		}
-	})
-
 	modelsList := []string{
 		"googleai/gemini-3.5-flash",
 		"googleai/gemini-3.1-pro-preview",
@@ -185,6 +180,9 @@ func runSetup() {
 		"togetherai/Qwen/Qwen-3.5-397B-A17B",
 		"togetherai/MiniMaxAI/MiniMax-M2.7",
 		"togetherai/google/gemma-4-31B-it",
+		"kimchi/kimi-k2.6",
+		"kimchi/kimi-k2.5",
+		"kimchi/minimax-m2.7",
 	}
 	initialModelIndex := 0
 	for i, m := range modelsList {
@@ -198,18 +196,51 @@ func runSetup() {
 		initialModelIndex = len(modelsList) - 1
 	}
 
-	form.AddDropDown("AI Model", modelsList, initialModelIndex, func(option string, optionIndex int) {
-		model = option
+	companyNameInput := tview.NewInputField().SetLabel("Company Name").SetFieldWidth(30).SetText(companyName)
+	mailDomainInput := tview.NewInputField().SetLabel("Mail Domain").SetFieldWidth(30).SetText(mailDomain)
+
+	// User
+	userNameInput := tview.NewInputField().SetLabel("Your Name (User)").SetFieldWidth(30).SetText(userName)
+	userEmailInput := tview.NewInputField().SetLabel("Your Email (User)").SetFieldWidth(40).SetText(userEmail)
+
+	// PM
+	pmNameInput := tview.NewInputField().SetLabel("Project Manager Name").SetFieldWidth(30).SetText(pmName)
+	pmEmailInput := tview.NewInputField().SetLabel("Project Manager Email").SetFieldWidth(40).SetText(pmEmail)
+
+	// Maintainer
+	maintNameInput := tview.NewInputField().SetLabel("Maintainer Name").SetFieldWidth(30).SetText(maintName)
+	maintEmailInput := tview.NewInputField().SetLabel("Maintainer Email").SetFieldWidth(40).SetText(maintEmail)
+
+	// Security
+	secNameInput := tview.NewInputField().SetLabel("Security Spec Name").SetFieldWidth(30).SetText(secName)
+	secEmailInput := tview.NewInputField().SetLabel("Security Spec Email").SetFieldWidth(40).SetText(secEmail)
+
+	companyNameInput.SetChangedFunc(func(t string) {
+		companyName = t
 		if updatePreview != nil {
 			updatePreview()
 		}
 	})
 
-	// User
-	userNameInput := tview.NewInputField().SetLabel("Your Name (User)").SetFieldWidth(30).SetText(userName)
-	userEmailInput := tview.NewInputField().SetLabel("Your Email (User)").SetFieldWidth(40).SetText(userEmail)
+	mailDomainInput.SetChangedFunc(func(t string) {
+		mailDomain = t
+		userEmailInput.SetText(generateEmail(userNameInput.GetText(), mailDomain, usedEmails))
+		pmEmailInput.SetText(generateEmail(pmNameInput.GetText(), mailDomain, usedEmails))
+		maintEmailInput.SetText(generateEmail(maintNameInput.GetText(), mailDomain, usedEmails))
+		secEmailInput.SetText(generateEmail(secNameInput.GetText(), mailDomain, usedEmails))
+		for _, d := range devs {
+			d.emailInput.SetText(generateEmail(d.nameInput.GetText(), mailDomain, usedEmails))
+		}
+		for _, t := range tests {
+			t.emailInput.SetText(generateEmail(t.nameInput.GetText(), mailDomain, usedEmails))
+		}
+		if updatePreview != nil {
+			updatePreview()
+		}
+	})
+
 	userNameInput.SetChangedFunc(func(t string) {
-		userEmailInput.SetText(generateEmail(t, usedEmails))
+		userEmailInput.SetText(generateEmail(t, mailDomain, usedEmails))
 		if updatePreview != nil {
 			updatePreview()
 		}
@@ -219,14 +250,9 @@ func runSetup() {
 			updatePreview()
 		}
 	})
-	form.AddFormItem(userNameInput)
-	form.AddFormItem(userEmailInput)
 
-	// PM
-	pmNameInput := tview.NewInputField().SetLabel("Project Manager Name").SetFieldWidth(30).SetText(pmName)
-	pmEmailInput := tview.NewInputField().SetLabel("Project Manager Email").SetFieldWidth(40).SetText(pmEmail)
 	pmNameInput.SetChangedFunc(func(t string) {
-		pmEmailInput.SetText(generateEmail(t, usedEmails))
+		pmEmailInput.SetText(generateEmail(t, mailDomain, usedEmails))
 		if updatePreview != nil {
 			updatePreview()
 		}
@@ -236,14 +262,9 @@ func runSetup() {
 			updatePreview()
 		}
 	})
-	form.AddFormItem(pmNameInput)
-	form.AddFormItem(pmEmailInput)
 
-	// Maintainer
-	maintNameInput := tview.NewInputField().SetLabel("Maintainer Name").SetFieldWidth(30).SetText(maintName)
-	maintEmailInput := tview.NewInputField().SetLabel("Maintainer Email").SetFieldWidth(40).SetText(maintEmail)
 	maintNameInput.SetChangedFunc(func(t string) {
-		maintEmailInput.SetText(generateEmail(t, usedEmails))
+		maintEmailInput.SetText(generateEmail(t, mailDomain, usedEmails))
 		if updatePreview != nil {
 			updatePreview()
 		}
@@ -253,14 +274,9 @@ func runSetup() {
 			updatePreview()
 		}
 	})
-	form.AddFormItem(maintNameInput)
-	form.AddFormItem(maintEmailInput)
 
-	// Security
-	secNameInput := tview.NewInputField().SetLabel("Security Spec Name").SetFieldWidth(30).SetText(secName)
-	secEmailInput := tview.NewInputField().SetLabel("Security Spec Email").SetFieldWidth(40).SetText(secEmail)
 	secNameInput.SetChangedFunc(func(t string) {
-		secEmailInput.SetText(generateEmail(t, usedEmails))
+		secEmailInput.SetText(generateEmail(t, mailDomain, usedEmails))
 		if updatePreview != nil {
 			updatePreview()
 		}
@@ -270,6 +286,30 @@ func runSetup() {
 			updatePreview()
 		}
 	})
+
+	form.AddFormItem(companyNameInput)
+	form.AddFormItem(mailDomainInput)
+
+	form.AddDropDown("SSH Key Path", sshKeys, initialKeyIndex, func(option string, optionIndex int) {
+		sshKeyPath = option
+		if updatePreview != nil {
+			updatePreview()
+		}
+	})
+
+	form.AddDropDown("AI Model", modelsList, initialModelIndex, func(option string, optionIndex int) {
+		model = option
+		if updatePreview != nil {
+			updatePreview()
+		}
+	})
+
+	form.AddFormItem(userNameInput)
+	form.AddFormItem(userEmailInput)
+	form.AddFormItem(pmNameInput)
+	form.AddFormItem(pmEmailInput)
+	form.AddFormItem(maintNameInput)
+	form.AddFormItem(maintEmailInput)
 	form.AddFormItem(secNameInput)
 	form.AddFormItem(secEmailInput)
 
@@ -309,6 +349,8 @@ func runSetup() {
 	saved := false
 
 	form.AddButton("Save & Exit", func() {
+		companyName = companyNameInput.GetText()
+		mailDomain = mailDomainInput.GetText()
 		pmName = pmNameInput.GetText()
 		pmEmail = pmEmailInput.GetText()
 		maintName = maintNameInput.GetText()
@@ -338,32 +380,58 @@ func runSetup() {
 			}
 		}
 
+		getExistingPrompt := func(role, email, name string, defaultPrompt string) string {
+			for _, a := range loadedCfg.Agents {
+				if a.Email == email && a.Role == role {
+					if a.SystemPrompt != "" {
+						return a.SystemPrompt
+					}
+				}
+			}
+			for _, a := range loadedCfg.Agents {
+				if a.Role == role && (role == "pm" || role == "maint" || role == "sec") {
+					if a.SystemPrompt != "" {
+						return a.SystemPrompt
+					}
+				}
+			}
+			for _, a := range loadedCfg.Agents {
+				if a.Name == name && a.Role == role {
+					if a.SystemPrompt != "" {
+						return a.SystemPrompt
+					}
+				}
+			}
+			return defaultPrompt
+		}
+
 		cfg := config.Config{
-			RepoURL:    repoUrl,
-			SSHKeyPath: sshKeyPath,
-			UserName:   userName,
-			UserEmail:  userEmail,
-			Model:      model,
+			CompanyName: companyName,
+			MailDomain:  mailDomain,
+			SSHKeyPath:  sshKeyPath,
+			UserName:    userName,
+			UserEmail:   userEmail,
+			Model:       model,
 			Agents: []config.AgentConfig{
 				{
 					Name:         pmName,
 					Email:        pmEmail,
 					Role:         "pm",
-					SystemPrompt: config.PMSystemPrompt,
+					SystemPrompt: getExistingPrompt("pm", pmEmail, pmName, config.PMSystemPrompt),
 					Tools:        []string{"check_mailbox", "read_mail", "send_mail"},
 				},
 				{
 					Name:         maintName,
 					Email:        maintEmail,
 					Role:         "maint",
-					SystemPrompt: config.MaintSystemPrompt,
+					SystemPrompt: getExistingPrompt("maint", maintEmail, maintName, config.MaintSystemPrompt),
 					Tools:        []string{"check_mailbox", "read_mail", "send_mail", "run_terminal_command"},
 				},
 				{
 					Name:         secName,
 					Email:        secEmail,
 					Role:         "sec",
-					SystemPrompt: config.SecSystemPrompt,
+					SystemPrompt: getExistingPrompt("sec", secEmail, secName, config.SecSystemPrompt),
 					Tools:        []string{"check_mailbox", "read_mail", "send_mail", "read_file", "run_terminal_command"},
 				},
 			},
@@ -377,7 +445,7 @@ func runSetup() {
 					Name:         n,
 					Email:        e,
 					Role:         "dev",
-					SystemPrompt: config.DevSystemPrompt,
+					SystemPrompt: getExistingPrompt("dev", e, n, config.DevSystemPrompt),
 					Tools:        []string{"check_mailbox", "read_mail", "send_mail", "read_file", "write_file", "run_terminal_command"},
 				})
 			}
@@ -391,7 +459,7 @@ func runSetup() {
 					Name:         n,
 					Email:        e,
 					Role:         "test",
-					SystemPrompt: config.TestSystemPrompt,
+					SystemPrompt: getExistingPrompt("test", e, n, config.TestSystemPrompt),
 					Tools:        []string{"check_mailbox", "read_mail", "send_mail", "read_file", "write_file", "run_terminal_command"},
 				})
 			}
@@ -416,10 +484,20 @@ func runSetup() {
 		sb.WriteString(" [#bb9af7]⚡ VIBEGANG ROSTER PREVIEW ⚡[-]\n")
 		sb.WriteString(" ───────────────────────────────\n\n")
 
+		cName := companyNameInput.GetText()
+		if cName == "" {
+			cName = "[#565f89]Not Set[-]"
+		}
+		mDom := mailDomainInput.GetText()
+		if mDom == "" {
+			mDom = "[#565f89]Not Set[-]"
+		}
+
 		sb.WriteString("  [#e0af68]■ ENVIRONMENT[-]\n")
-		sb.WriteString(fmt.Sprintf("    [#565f89]Repo:[-]  %s\n", repoUrl))
-		sb.WriteString(fmt.Sprintf("    [#565f89]Key:[-]   %s\n", sshKeyPath))
-		sb.WriteString(fmt.Sprintf("    [#565f89]Model:[-] %s\n\n", model))
+		sb.WriteString(fmt.Sprintf("    [#565f89]Company:[-] %s\n", cName))
+		sb.WriteString(fmt.Sprintf("    [#565f89]Domain:[-]  %s\n", mDom))
+		sb.WriteString(fmt.Sprintf("    [#565f89]Key:[-]     %s\n", sshKeyPath))
+		sb.WriteString(fmt.Sprintf("    [#565f89]Model:[-]   %s\n\n", model))
 
 		sb.WriteString("  [#e0af68]■ CORE TEAM[-]\n")
 		uName := userNameInput.GetText()

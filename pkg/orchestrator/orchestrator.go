@@ -18,11 +18,13 @@ import (
 
 type Orchestrator struct {
 	Config *config.Config
+	Reset  bool
 }
 
-func NewOrchestrator(cfg *config.Config) (*Orchestrator, error) {
+func NewOrchestrator(cfg *config.Config, reset bool) (*Orchestrator, error) {
 	return &Orchestrator{
 		Config: cfg,
+		Reset:  reset,
 	}, nil
 }
 
@@ -48,8 +50,16 @@ func (o *Orchestrator) StartSystem(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to postgres: %w", err)
 	}
 	defer dbClient.Close()
-	if err := dbClient.SetupSchema(); err != nil {
-		return fmt.Errorf("failed to setup schema: %w", err)
+
+	if o.Reset {
+		log.Println("Resetting Database (clearing all tables)...")
+		if err := dbClient.ClearTables(); err != nil {
+			return fmt.Errorf("failed to reset database: %w", err)
+		}
+	} else {
+		if err := dbClient.SetupSchema(); err != nil {
+			return fmt.Errorf("failed to setup schema: %w", err)
+		}
 	}
 
 	log.Println("Building Agent Docker image...")
@@ -159,7 +169,7 @@ func (o *Orchestrator) startAgent(agent config.AgentConfig, dbConnStr string) er
 		args = append(args, "-v", fmt.Sprintf("%s:/root/.ssh/id_rsa:ro", sshKeyPath))
 	}
 
-	for _, envVar := range []string{"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "TOGETHER_API_KEY"} {
+	for _, envVar := range []string{"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "TOGETHER_API_KEY", "KIMCHI_API_KEY"} {
 		if val := os.Getenv(envVar); val != "" {
 			args = append(args, "-e", fmt.Sprintf("%s=%s", envVar, val))
 		}

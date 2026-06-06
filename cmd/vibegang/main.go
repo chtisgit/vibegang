@@ -9,13 +9,13 @@ import (
 	"syscall"
 
 	"github.com/chtisgit/vibegang/pkg/config"
-	"github.com/chtisgit/vibegang/pkg/db"
 	"github.com/chtisgit/vibegang/pkg/orchestrator"
 
 	"github.com/spf13/cobra"
 )
 
 var cfgFile string
+var resetFlag bool
 
 var rootCmd = &cobra.Command{
 	Use:   "vibegang",
@@ -42,7 +42,7 @@ var startCmd = &cobra.Command{
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		orch, err := orchestrator.NewOrchestrator(cfg)
+		orch, err := orchestrator.NewOrchestrator(cfg, resetFlag)
 		if err != nil {
 			log.Fatalf("Failed to initialize orchestrator: %v", err)
 		}
@@ -65,46 +65,6 @@ var startCmd = &cobra.Command{
 	},
 }
 
-var inboxCmd = &cobra.Command{
-	Use:   "inbox",
-	Short: "Check the inbox for unread mail",
-	Run: func(cmd *cobra.Command, args []string) {
-		cfg, err := config.LoadConfig(cfgFile)
-		if err != nil {
-			log.Fatalf("Failed to load config: %v", err)
-		}
-
-		dbConnStr := getDBConnStr()
-		dbClient, err := db.NewDB(dbConnStr)
-		if err != nil {
-			log.Fatalf("Failed to connect to database: %v", err)
-		}
-		defer dbClient.Close()
-
-		summaries, err := dbClient.GetUnreadSummary(cfg.UserEmail)
-		if err != nil {
-			log.Fatalf("Failed to fetch inbox: %v", err)
-		}
-
-		if len(summaries) == 0 {
-			fmt.Println("Inbox is empty.")
-			return
-		}
-
-		fmt.Printf("You have %d unread emails:\n\n", len(summaries))
-		for _, s := range summaries {
-			fmt.Printf("From: %s\nSubject: %s\n", s.From, s.Subject)
-			mail, err := dbClient.ReadMail(cfg.UserEmail, s.ID)
-			if err != nil {
-				log.Printf("Failed to read mail ID %d: %v", s.ID, err)
-				continue
-			}
-			fmt.Printf("Body:\n%s\n", mail.Body)
-			fmt.Println("--------------------------------------------------")
-		}
-	},
-}
-
 var mailCmd = &cobra.Command{
 	Use:   "mail",
 	Short: "Interactively manage your mailbox in a TUI",
@@ -115,10 +75,10 @@ var mailCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "vibegang.yaml", "Path to config file")
+	startCmd.Flags().BoolVar(&resetFlag, "reset", false, "Clear all database tables before starting")
 
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(startCmd)
-	rootCmd.AddCommand(inboxCmd)
 	rootCmd.AddCommand(mailCmd)
 }
 

@@ -83,6 +83,17 @@ func (d *DB) SetupSchema() error {
 	return err
 }
 
+func (d *DB) ClearTables() error {
+	if err := d.SetupSchema(); err != nil {
+		return err
+	}
+	query := `
+	TRUNCATE TABLE emails, agent_logs, todo_items RESTART IDENTITY CASCADE;
+	`
+	_, err := d.sqlDB.Exec(query)
+	return err
+}
+
 func (d *DB) LogAction(agentEmail, action string) error {
 	query := `INSERT INTO agent_logs (agent_email, action) VALUES ($1, $2) RETURNING id`
 	var id int

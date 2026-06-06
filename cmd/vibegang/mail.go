@@ -242,8 +242,7 @@ func runMailTUI(cfgPath string) {
 			SetFieldWidth(60)
 		form.AddFormItem(subjectInput)
 
-		bodyInput := tview.NewTextArea().
-			SetLabel("Body:")
+		bodyInput := tview.NewTextArea()
 		bodyInput.SetText(replyBody, !focusBody)
 		form.AddFormItem(bodyInput)
 

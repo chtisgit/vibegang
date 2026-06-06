@@ -75,6 +75,16 @@ func (a *Agent) Start(ctx context.Context) error {
 			APIKey:   apiKey,
 			BaseURL:  "https://api.together.xyz/v1",
 		})
+	case "kimchi":
+		apiKey := os.Getenv("KIMCHI_API_KEY")
+		if apiKey == "" {
+			return fmt.Errorf("KIMCHI_API_KEY environment variable is required for model %s", modelName)
+		}
+		plugins = append(plugins, &compat_oai.OpenAICompatible{
+			Provider: "kimchi",
+			APIKey:   apiKey,
+			BaseURL:  "https://llm.kimchi.dev/openai/v1",
+		})
 	default:
 		return fmt.Errorf("unknown model provider %q for model %q", provider, modelName)
 	}
@@ -127,7 +137,7 @@ func (a *Agent) Start(ctx context.Context) error {
 		log.Printf("Failed to log ready state: %v", err)
 	}
 
-	lastAction := ""
+	var history []*ai.Message
 	for {
 		summaries, err := a.DB.GetUnreadSummary(a.Config.Email)
 		if err != nil {
@@ -153,25 +163,21 @@ func (a *Agent) Start(ctx context.Context) error {
 		}
 
 		var prompt string
-		lastActionStr := ""
-		if lastAction != "" {
-			lastActionStr = "\nThis is the last thing you did: " + lastAction
-		}
 
 		if len(summaries) > 0 {
-			prompt = fmt.Sprintf("You have %d unread emails in your mailbox. Please check them and take necessary actions.%s", len(summaries), lastActionStr)
+			prompt = fmt.Sprintf("You have %d unread emails in your mailbox. Please check them and take necessary actions.", len(summaries))
 			log.Printf("Agent %s received mail, invoking LLM...", a.Config.Name)
 		} else {
-			prompt = fmt.Sprintf("You have no unread emails, but you have %d pending todo items. Please review your todo list and take necessary actions.%s", len(todos), lastActionStr)
+			prompt = fmt.Sprintf("You have no unread emails, but you have %d pending todo items. Please review your todo list and take necessary actions", len(todos))
 			log.Printf("Agent %s has pending todos, invoking LLM...", a.Config.Name)
 		}
-		lastAction = ""
 
 		modelName := a.Config.Model
 
 		resp, err := genkit.Generate(ctx, g,
 			ai.WithModelName(modelName),
 			ai.WithSystem(a.Config.SystemPrompt),
+			ai.WithMessages(history...),
 			ai.WithPrompt(prompt),
 			ai.WithTools(allowedTools...),
 			ai.WithMaxTurns(64),
@@ -183,19 +189,25 @@ func (a *Agent) Start(ctx context.Context) error {
 		}
 		log.Printf("Agent %s action completed: %s", a.Config.Name, resp.Text())
 
-		resp2, err := genkit.Generate(ctx, g,
-			ai.WithModelName(modelName),
-			ai.WithSystem(a.Config.SystemPrompt),
-			ai.WithMessages(resp.History()...),
-			ai.WithPrompt("Please summarize your most recent actions (in a maximum of 5 sentences). Reply only with the summary text, no other text."),
-			ai.WithTools(allowedTools...),
-			ai.WithMaxTurns(64),
-		)
-		if err != nil {
-			log.Printf("Generation error: %v", err)
-		} else {
-			lastAction = resp2.Text()
-			log.Printf("Agent %s summarized its actions: %s", a.Config.Name, lastAction)
+		history = resp.History()
+
+		inputLength := resp.Usage.InputTokens + resp.Usage.CachedContentTokens
+		if inputLength > 200_000 {
+			resp2, err := genkit.Generate(ctx, g,
+				ai.WithModelName(modelName),
+				ai.WithSystem(a.Config.SystemPrompt),
+				ai.WithMessages(history...),
+				ai.WithPrompt("Summarize what you were doing up until now from your own pov. Be sure to include essential information like local file paths and repository URLs of projects you are working on. Keep the summary as short as possible."),
+			)
+
+			if err != nil {
+				log.Printf("Generation error: %v", err)
+			} else {
+				log.Printf("Agent %s has performed auto-compaction: %s", a.Config.Name, resp2.Text())
+				history = []*ai.Message{
+					ai.NewModelTextMessage(resp2.Text()),
+				}
+			}
 		}
 	}
 }
