@@ -347,12 +347,15 @@ func (a *Agent) defineTerminalTool(g *genkit.Genkit) ai.ToolRef {
 func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
 	type input struct{}
 	return genkit.DefineTool[input, string](g, "list_todo_items", "List outstanding todo items for the agent", func(ctx *ai.ToolContext, i input) (string, error) {
-		if err := a.DB.LogAction(a.Config.Email, "Listed todo items"); err != nil {
-			log.Printf("Failed to log action: %v", err)
-		}
 		items, err := a.DB.GetTodoItems(a.Config.Email)
 		if err != nil {
+			if err := a.DB.LogAction(a.Config.Email, "Listed todo items (error)"); err != nil {
+				log.Printf("Failed to log action: %v", err)
+			}
 			return "", err
+		}
+		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Listed todo items (%d)", len(items))); err != nil {
+			log.Printf("Failed to log action: %v", err)
 		}
 		if len(items) == 0 {
 			return "Your todo list is empty.", nil
