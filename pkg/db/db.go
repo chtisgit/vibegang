@@ -29,8 +29,9 @@ type MailSummary struct {
 }
 
 type TodoItem struct {
-	ID   int    `json:"id"`
-	Item string `json:"item"`
+	ID      int    `json:"id"`
+	Item    string `json:"item"`
+	Details string `json:"details"`
 }
 
 type DB struct {
@@ -76,8 +77,10 @@ func (d *DB) SetupSchema() error {
 		id SERIAL PRIMARY KEY,
 		email TEXT NOT NULL,
 		item TEXT NOT NULL,
+		details TEXT DEFAULT '',
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
+	ALTER TABLE todo_items ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';
 	`
 	_, err := d.sqlDB.Exec(query)
 	return err
@@ -230,9 +233,9 @@ func (d *DB) WaitForMail(email string) error {
 	}
 }
 
-func (d *DB) AddTodoItem(email, item string) error {
-	query := `INSERT INTO todo_items (email, item) VALUES ($1, $2)`
-	_, err := d.sqlDB.Exec(query, email, item)
+func (d *DB) AddTodoItem(email, item, details string) error {
+	query := `INSERT INTO todo_items (email, item, details) VALUES ($1, $2, $3)`
+	_, err := d.sqlDB.Exec(query, email, item, details)
 	return err
 }
 
@@ -253,7 +256,7 @@ func (d *DB) RemoveTodoItem(email string, id int) error {
 }
 
 func (d *DB) GetTodoItems(email string) ([]TodoItem, error) {
-	query := `SELECT id, item FROM todo_items WHERE email = $1 ORDER BY id ASC`
+	query := `SELECT id, item, details FROM todo_items WHERE email = $1 ORDER BY id ASC`
 	rows, err := d.sqlDB.Query(query, email)
 	if err != nil {
 		return nil, err
@@ -263,7 +266,7 @@ func (d *DB) GetTodoItems(email string) ([]TodoItem, error) {
 	var items []TodoItem
 	for rows.Next() {
 		var item TodoItem
-		if err := rows.Scan(&item.ID, &item.Item); err != nil {
+		if err := rows.Scan(&item.ID, &item.Item, &item.Details); err != nil {
 			return nil, err
 		}
 		items = append(items, item)

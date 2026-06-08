@@ -361,7 +361,7 @@ func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
 		var sb strings.Builder
 		sb.WriteString("Outstanding Todo Items:\n")
 		for _, item := range items {
-			sb.WriteString(fmt.Sprintf("- ID: %d | Item: %s\n", item.ID, item.Item))
+			sb.WriteString(fmt.Sprintf("- ID: %d | Item: %s | Details: %s\n", item.ID, item.Item, item.Details))
 		}
 		return sb.String(), nil
 	})
@@ -369,13 +369,14 @@ func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
 
 func (a *Agent) defineAddTodoTool(g *genkit.Genkit) ai.ToolRef {
 	type input struct {
-		Item string `json:"item"`
+		Item    string `json:"item"`
+		Details string `json:"details"`
 	}
 	return genkit.DefineTool[input, string](g, "add_todo_item", "Add a new item to the agent's todo list", func(ctx *ai.ToolContext, i input) (string, error) {
-		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Added todo item: %s", i.Item)); err != nil {
+		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Added todo item: %s (Details: %s)", i.Item, i.Details)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
-		err := a.DB.AddTodoItem(a.Config.Email, i.Item)
+		err := a.DB.AddTodoItem(a.Config.Email, i.Item, i.Details)
 		if err != nil {
 			return "", err
 		}
