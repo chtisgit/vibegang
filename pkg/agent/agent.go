@@ -138,6 +138,12 @@ func (a *Agent) Start(ctx context.Context) error {
 	}
 
 	var history []*ai.Message
+	b := NewBackoff([]time.Duration{
+		30 * time.Second,
+		2 * time.Minute,
+		10 * time.Minute,
+		20 * time.Minute,
+	})
 	for {
 		summaries, err := a.DB.GetUnreadSummary(a.Config.Email)
 		if err != nil {
@@ -185,8 +191,13 @@ func (a *Agent) Start(ctx context.Context) error {
 
 		if err != nil {
 			log.Printf("Generation error: %v", err)
+			b.Increment()
+			if wErr := b.Wait(ctx); wErr != nil {
+				return wErr
+			}
 			continue
 		}
+		b.Reset()
 		log.Printf("Agent %s action completed: %s", a.Config.Name, resp.Text())
 
 		history = resp.History()
@@ -202,7 +213,12 @@ func (a *Agent) Start(ctx context.Context) error {
 
 			if err != nil {
 				log.Printf("Generation error: %v", err)
+				b.Increment()
+				if wErr := b.Wait(ctx); wErr != nil {
+					return wErr
+				}
 			} else {
+				b.Reset()
 				log.Printf("Agent %s has performed auto-compaction: %s", a.Config.Name, resp2.Text())
 				history = []*ai.Message{
 					ai.NewModelTextMessage(resp2.Text()),
