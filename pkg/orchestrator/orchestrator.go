@@ -135,14 +135,34 @@ func (o *Orchestrator) buildAgentImage() error {
 	return cmd.Run()
 }
 
+func (o *Orchestrator) getContainerName(email string) string {
+	localPart := email
+	if idx := strings.Index(email, "@"); idx != -1 {
+		localPart = email[:idx]
+	}
+	localPart = strings.ReplaceAll(localPart, ".", "-")
+
+	var sb strings.Builder
+	for _, r := range o.Config.CompanyName {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			sb.WriteRune(r)
+		}
+	}
+	shortform := sb.String()
+	if len(shortform) > 12 {
+		shortform = shortform[:12]
+	}
+
+	return fmt.Sprintf("vibegang-%s-%s", shortform, localPart)
+}
+
 func (o *Orchestrator) startAgent(agent config.AgentConfig, dbConnStr string) error {
+	containerName := o.getContainerName(agent.Email)
 	localPart := agent.Email
 	if idx := strings.Index(agent.Email, "@"); idx != -1 {
 		localPart = agent.Email[:idx]
 	}
 	localPart = strings.ReplaceAll(localPart, ".", "-")
-
-	containerName := fmt.Sprintf("vibegang-agent-%s", localPart)
 
 	hostWorkspace := filepath.Join("/tmp/vibegang", localPart)
 	os.MkdirAll(hostWorkspace, 0755)
@@ -237,12 +257,7 @@ func (o *Orchestrator) listenToLogs(ctx context.Context, dbConnStr string) error
 func (o *Orchestrator) StopSystem() {
 	log.Println("Terminating agent containers...")
 	for _, agent := range o.Config.Agents {
-		localPart := agent.Email
-		if idx := strings.Index(agent.Email, "@"); idx != -1 {
-			localPart = agent.Email[:idx]
-		}
-		localPart = strings.ReplaceAll(localPart, ".", "-")
-		containerName := fmt.Sprintf("vibegang-agent-%s", localPart)
+		containerName := o.getContainerName(agent.Email)
 
 		log.Printf("Stopping container %s...", containerName)
 		exec.Command("docker", "rm", "-f", containerName).Run()
