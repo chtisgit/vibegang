@@ -107,7 +107,7 @@ go run ./cmd/vibegang start -c vibegang.yaml --reset
 
 You can interact directly with the agent team by opening the mailbox browser to read/send emails and assign tasks:
 ```bash
-go run ./cmd/vibegang mail -c vibegang.yaml
+go run ./cmd/vibegang inbox -c vibegang.yaml
 ```
 
 ### Listing Todos & Emails via CLI
@@ -155,7 +155,7 @@ go run ./cmd/vibegang show-email <email-id>
 
 ```
 ├── cmd
-│   ├── vibegang            # Main CLI commands (start, setup, mail)
+│   ├── vibegang            # Main CLI commands (start, setup, inbox)
 │   └── vibegang-agent      # Agent binary that runs inside the container
 ├── pkg
 │   ├── agent               # Genkit initialization and built-in agent tools

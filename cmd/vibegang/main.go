@@ -69,9 +69,9 @@ var startCmd = &cobra.Command{
 	},
 }
 
-var mailCmd = &cobra.Command{
-	Use:   "mail",
-	Short: "Interactively manage your mailbox in a TUI",
+var inboxCmd = &cobra.Command{
+	Use:   "inbox",
+	Short: "Interactively manage your inbox in a TUI",
 	Run: func(cmd *cobra.Command, args []string) {
 		runMailTUI(cfgFile)
 	},
@@ -213,7 +213,7 @@ func init() {
 
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(startCmd)
-	rootCmd.AddCommand(mailCmd)
+	rootCmd.AddCommand(inboxCmd)
 
 	listTodosCmd.Flags().StringP("email", "e", "", "List only todos for this specific e-mail account")
 	rootCmd.AddCommand(listTodosCmd)
