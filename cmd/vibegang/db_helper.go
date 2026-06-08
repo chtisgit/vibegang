@@ -4,10 +4,22 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/chtisgit/vibegang/pkg/config"
 )
 
 func getDBConnStr() string {
-	cmd := exec.Command("docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", "vibegang-postgres")
+	pgName := "vibegang-postgres"
+	cfgPath := cfgFile
+	if cfgPath == "" {
+		cfgPath = "vibegang.yaml"
+	}
+	cfg, err := config.LoadConfig(cfgPath)
+	if err == nil {
+		pgName = cfg.GetPostgresContainerName()
+	}
+
+	cmd := exec.Command("docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", pgName)
 	ipOut, err := cmd.Output()
 	if err == nil {
 		ip := strings.TrimSpace(string(ipOut))

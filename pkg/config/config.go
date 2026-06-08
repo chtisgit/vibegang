@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -37,4 +38,22 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func (c *Config) GetCompanyShortform() string {
+	var sb strings.Builder
+	for _, r := range c.CompanyName {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			sb.WriteRune(r)
+		}
+	}
+	shortform := sb.String()
+	if len(shortform) > 12 {
+		shortform = shortform[:12]
+	}
+	return shortform
+}
+
+func (c *Config) GetPostgresContainerName() string {
+	return "vibegang-" + c.GetCompanyShortform() + "-postgres"
 }

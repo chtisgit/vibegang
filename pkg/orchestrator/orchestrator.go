@@ -95,16 +95,17 @@ func (o *Orchestrator) ensureNetwork(name string) error {
 }
 
 func (o *Orchestrator) startPostgres() (string, error) {
+	pgName := o.Config.GetPostgresContainerName()
 	// Check if container already exists
 	out, err := exec.Command("docker", "ps", "-a", "--format", "{{.Names}}").Output()
-	if err == nil && strings.Contains(string(out), "vibegang-postgres") {
+	if err == nil && strings.Contains(string(out), pgName) {
 		// Just start it
-		exec.Command("docker", "start", "vibegang-postgres").Run()
+		exec.Command("docker", "start", pgName).Run()
 	} else {
 		// Create and start
-		cmd := exec.Command("docker", "run", "-d", "--name", "vibegang-postgres",
+		cmd := exec.Command("docker", "run", "-d", "--name", pgName,
 			"--network", "vibegang-net",
-			"-v", "vibegang-postgres-data:/var/lib/postgresql/data",
+			"-v", fmt.Sprintf("%s-data:/var/lib/postgresql/data", pgName),
 			"-e", "POSTGRES_PASSWORD=password",
 			"-e", "POSTGRES_DB=vibegang",
 			"postgres:15-alpine")
@@ -114,7 +115,7 @@ func (o *Orchestrator) startPostgres() (string, error) {
 	}
 
 	// Get IP
-	ipOut, err := exec.Command("docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", "vibegang-postgres").Output()
+	ipOut, err := exec.Command("docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", pgName).Output()
 	if err != nil {
 		return "", err
 	}
@@ -142,18 +143,7 @@ func (o *Orchestrator) getContainerName(email string) string {
 	}
 	localPart = strings.ReplaceAll(localPart, ".", "-")
 
-	var sb strings.Builder
-	for _, r := range o.Config.CompanyName {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
-			sb.WriteRune(r)
-		}
-	}
-	shortform := sb.String()
-	if len(shortform) > 12 {
-		shortform = shortform[:12]
-	}
-
-	return fmt.Sprintf("vibegang-%s-%s", shortform, localPart)
+	return fmt.Sprintf("vibegang-%s-%s", o.Config.GetCompanyShortform(), localPart)
 }
 
 func (o *Orchestrator) startAgent(agent config.AgentConfig, dbConnStr string) error {
@@ -264,5 +254,5 @@ func (o *Orchestrator) StopSystem() {
 	}
 
 	log.Println("Terminating database container...")
-	exec.Command("docker", "rm", "-f", "vibegang-postgres").Run()
+	exec.Command("docker", "rm", "-f", o.Config.GetPostgresContainerName()).Run()
 }
