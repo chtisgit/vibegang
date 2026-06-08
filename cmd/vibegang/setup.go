@@ -180,9 +180,7 @@ func runSetup() {
 		"togetherai/Qwen/Qwen-3.5-397B-A17B",
 		"togetherai/MiniMaxAI/MiniMax-M2.7",
 		"togetherai/google/gemma-4-31B-it",
-		"custom/kimi-k2.6",
-		"custom/kimi-k2.5",
-		"custom/minimax-m2.7",
+		"custom",
 	}
 	initialModelIndex := 0
 	for i, m := range modelsList {

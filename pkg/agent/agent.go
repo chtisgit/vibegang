@@ -37,7 +37,7 @@ func (a *Agent) Start(ctx context.Context) error {
 	modelName := a.Config.Model
 
 	parts := strings.Split(modelName, "/")
-	var provider string
+	provider := modelName
 	if len(parts) > 0 {
 		provider = parts[0]
 	}
@@ -75,21 +75,25 @@ func (a *Agent) Start(ctx context.Context) error {
 			APIKey:   apiKey,
 			BaseURL:  "https://api.together.xyz/v1",
 		})
-	default:
+	case "custom":
 		apiKey := os.Getenv("OPENAI_API_KEY")
 		if apiKey == "" {
 			apiKey = os.Getenv("CUSTOM_API_KEY")
 		}
 		if apiKey == "" {
-			return fmt.Errorf("OPENAI_API_KEY or CUSTOM_API_KEY environment variable is required for model %s", modelName)
+			return fmt.Errorf("OPENAI_API_KEY or CUSTOM_API_KEY environment variable is required when model is set to 'custom'")
 		}
 		providerName := os.Getenv("CUSTOM_PROVIDER")
 		if providerName == "" {
-			return fmt.Errorf("CUSTOM_PROVIDER environment variable is required for model %s", modelName)
+			return fmt.Errorf("CUSTOM_PROVIDER environment variable is required when model is set to 'custom'")
+		}
+		modelName = os.Getenv("CUSTOM_MODEL")
+		if modelName == "" {
+			return fmt.Errorf("CUSTOM_MODEL environment variable is required when model is set to 'custom'")
 		}
 		baseURL := os.Getenv("CUSTOM_BASE_URL")
 		if baseURL == "" {
-			return fmt.Errorf("CUSTOM_BASE_URL environment variable is required for model %s", modelName)
+			return fmt.Errorf("CUSTOM_BASE_URL environment variable is required when model is set to 'custom'")
 		}
 		plugins = append(plugins, &compat_oai.OpenAICompatible{
 			Provider: providerName,
@@ -174,8 +178,6 @@ func (a *Agent) Start(ctx context.Context) error {
 			prompt = fmt.Sprintf("You have no unread emails, but you have %d pending todo items. Please review your todo list and take necessary actions", len(todos))
 			log.Printf("Agent %s has pending todos, invoking LLM...", a.Config.Name)
 		}
-
-		modelName := a.Config.Model
 
 		resp, err := genkit.Generate(ctx, g,
 			ai.WithModelName(modelName),

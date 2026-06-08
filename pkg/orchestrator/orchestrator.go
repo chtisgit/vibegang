@@ -169,7 +169,7 @@ func (o *Orchestrator) startAgent(agent config.AgentConfig, dbConnStr string) er
 		args = append(args, "-v", fmt.Sprintf("%s:/root/.ssh/id_rsa:ro", sshKeyPath))
 	}
 
-	for _, envVar := range []string{"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "TOGETHER_API_KEY", "CUSTOM_API_KEY", "CUSTOM_PROVIDER", "CUSTOM_BASE_URL"} {
+	for _, envVar := range []string{"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "TOGETHER_API_KEY", "CUSTOM_API_KEY", "CUSTOM_PROVIDER", "CUSTOM_BASE_URL", "CUSTOM_MODEL"} {
 		if val := os.Getenv(envVar); val != "" {
 			args = append(args, "-e", fmt.Sprintf("%s=%s", envVar, val))
 		}

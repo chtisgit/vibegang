@@ -3,7 +3,7 @@ mail_domain: vibegang.local
 ssh_key_path: /home/chris/.ssh/id_rsa_vibegang
 user_name: Chris
 user_email: chris@vibegang.local
-model: custom/kimi-k2.5
+model: custom
 agents:
     - name: Boris Borislav Baller
       email: bbb@vibegang.local
