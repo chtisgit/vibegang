@@ -256,7 +256,7 @@ func (d *DB) RemoveTodoItem(email string, id int) error {
 }
 
 func (d *DB) GetTodoItems(email string) ([]TodoItem, error) {
-	query := `SELECT id, item, details FROM todo_items WHERE email = $1 ORDER BY id ASC`
+	query := `SELECT id, item FROM todo_items WHERE email = $1 ORDER BY id ASC`
 	rows, err := d.sqlDB.Query(query, email)
 	if err != nil {
 		return nil, err
@@ -266,10 +266,21 @@ func (d *DB) GetTodoItems(email string) ([]TodoItem, error) {
 	var items []TodoItem
 	for rows.Next() {
 		var item TodoItem
-		if err := rows.Scan(&item.ID, &item.Item, &item.Details); err != nil {
+		if err := rows.Scan(&item.ID, &item.Item); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+func (d *DB) GetTodoItem(email string, id int) (*TodoItem, error) {
+	query := `SELECT id, item, details FROM todo_items WHERE id = $1 AND email = $2`
+	row := d.sqlDB.QueryRow(query, id, email)
+	var item TodoItem
+	err := row.Scan(&item.ID, &item.Item, &item.Details)
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
 }

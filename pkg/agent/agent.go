@@ -106,6 +106,7 @@ func (a *Agent) Start(ctx context.Context) error {
 	hasListTodo := false
 	hasAddTodo := false
 	hasRemoveTodo := false
+	hasViewTodo := false
 	for _, toolName := range a.Config.Tools {
 		switch toolName {
 		case "check_mailbox":
@@ -129,6 +130,9 @@ func (a *Agent) Start(ctx context.Context) error {
 		case "remove_todo_item":
 			allowedTools = append(allowedTools, a.defineRemoveTodoTool(g))
 			hasRemoveTodo = true
+		case "view_todo_item_details":
+			allowedTools = append(allowedTools, a.defineViewTodoDetailsTool(g))
+			hasViewTodo = true
 		}
 	}
 
@@ -140,6 +144,9 @@ func (a *Agent) Start(ctx context.Context) error {
 	}
 	if !hasRemoveTodo {
 		allowedTools = append(allowedTools, a.defineRemoveTodoTool(g))
+	}
+	if !hasViewTodo {
+		allowedTools = append(allowedTools, a.defineViewTodoDetailsTool(g))
 	}
 
 	if err := a.DB.LogAction(a.Config.Email, "Ready"); err != nil {
@@ -370,7 +377,7 @@ func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
 		var sb strings.Builder
 		sb.WriteString("Outstanding Todo Items:\n")
 		for _, item := range items {
-			sb.WriteString(fmt.Sprintf("- ID: %d | Item: %s | Details: %s\n", item.ID, item.Item, item.Details))
+			sb.WriteString(fmt.Sprintf("- ID: %d | Item: %s\n", item.ID, item.Item))
 		}
 		return sb.String(), nil
 	})
@@ -406,5 +413,25 @@ func (a *Agent) defineRemoveTodoTool(g *genkit.Genkit) ai.ToolRef {
 			return "", err
 		}
 		return "Todo item removed successfully", nil
+	})
+}
+
+func (a *Agent) defineViewTodoDetailsTool(g *genkit.Genkit) ai.ToolRef {
+	type input struct {
+		ID int `json:"id"`
+	}
+	return genkit.DefineTool[input, string](g, "view_todo_item_details", "View the detailed description of a specific todo item by ID", func(ctx *ai.ToolContext, i input) (string, error) {
+		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Viewed todo item details for ID %d", i.ID)); err != nil {
+			log.Printf("Failed to log action: %v", err)
+		}
+		item, err := a.DB.GetTodoItem(a.Config.Email, i.ID)
+		if err != nil {
+			return "", err
+		}
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("Todo Item ID: %d\n", item.ID))
+		sb.WriteString(fmt.Sprintf("Item: %s\n", item.Item))
+		sb.WriteString(fmt.Sprintf("Details:\n%s\n", item.Details))
+		return sb.String(), nil
 	})
 }
