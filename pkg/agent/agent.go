@@ -121,6 +121,7 @@ func (a *Agent) Start(ctx context.Context) error {
 				a.defineAddTodoTool(g),
 				a.defineRemoveTodoTool(g),
 				a.defineViewTodoDetailsTool(g),
+				a.defineUpdateTodoBlockedStateTool(g),
 			)
 		case "filesystem":
 			allowedTools = append(allowedTools,
@@ -153,14 +154,14 @@ func (a *Agent) Start(ctx context.Context) error {
 			continue
 		}
 
-		todos, err := a.DB.GetTodoItems(a.Config.Email)
+		unblockedTodos, err := a.DB.GetTodoItems(a.Config.Email, true)
 		if err != nil {
 			log.Printf("Error getting todo items: %v", err)
 			time.Sleep(1 * time.Second)
 			continue
 		}
 
-		if len(summaries) == 0 && len(todos) == 0 {
+		if len(summaries) == 0 && len(unblockedTodos) == 0 {
 			log.Printf("Agent %s waiting for mail...", a.Config.Name)
 			err := a.DB.WaitForMail(a.Config.Email)
 			if err != nil {
@@ -172,10 +173,14 @@ func (a *Agent) Start(ctx context.Context) error {
 		var prompt string
 
 		if len(summaries) > 0 {
-			prompt = fmt.Sprintf("You have %d unread emails in your mailbox. Please check them and take necessary actions.", len(summaries))
+			if len(unblockedTodos) > 0 {
+				prompt = fmt.Sprintf("You have %d unread emails in your mailbox and %d unblocked todo items. Please check them and take necessary actions.", len(summaries), len(unblockedTodos))
+			} else {
+				prompt = fmt.Sprintf("You have %d unread emails in your mailbox. Please check them and take necessary actions.", len(summaries))
+			}
 			log.Printf("Agent %s received mail, invoking LLM...", a.Config.Name)
 		} else {
-			prompt = fmt.Sprintf("You have no unread emails, but you have %d pending todo items. Please review your todo list and take necessary actions", len(todos))
+			prompt = fmt.Sprintf("You have no unread emails, but you have %d unblocked todo items. Please review your todo list and take necessary actions.", len(unblockedTodos))
 			log.Printf("Agent %s has pending todos, invoking LLM...", a.Config.Name)
 		}
 
@@ -347,7 +352,7 @@ func (a *Agent) defineTerminalTool(g *genkit.Genkit) ai.ToolRef {
 func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
 	type input struct{}
 	return genkit.DefineTool[input, string](g, "list_todo_items", "List outstanding todo items for the agent", func(ctx *ai.ToolContext, i input) (string, error) {
-		items, err := a.DB.GetTodoItems(a.Config.Email)
+		items, err := a.DB.GetTodoItems(a.Config.Email, false)
 		if err != nil {
 			if err := a.DB.LogAction(a.Config.Email, "Listed todo items (error)"); err != nil {
 				log.Printf("Failed to log action: %v", err)
@@ -363,7 +368,11 @@ func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
 		var sb strings.Builder
 		sb.WriteString("Outstanding Todo Items:\n")
 		for _, item := range items {
-			sb.WriteString(fmt.Sprintf("- ID: %d | Item: %s\n", item.ID, item.Item))
+			status := ""
+			if item.TaskBlocked {
+				status = " [BLOCKED]"
+			}
+			sb.WriteString(fmt.Sprintf("- ID: %d | Item: %s%s\n", item.ID, item.Item, status))
 		}
 		return sb.String(), nil
 	})
@@ -371,14 +380,15 @@ func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
 
 func (a *Agent) defineAddTodoTool(g *genkit.Genkit) ai.ToolRef {
 	type input struct {
-		Item    string `json:"item"`
-		Details string `json:"details"`
+		Item        string `json:"item"`
+		Details     string `json:"details"`
+		TaskBlocked bool   `json:"task_blocked"`
 	}
 	return genkit.DefineTool[input, string](g, "add_todo_item", "Add a new item to the agent's todo list", func(ctx *ai.ToolContext, i input) (string, error) {
-		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Added todo item: %s (Details: %s)", i.Item, i.Details)); err != nil {
+		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Added todo item: %s (Details: %s, Blocked: %t)", i.Item, i.Details, i.TaskBlocked)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
-		err := a.DB.AddTodoItem(a.Config.Email, i.Item, i.Details)
+		err := a.DB.AddTodoItem(a.Config.Email, i.Item, i.Details, i.TaskBlocked)
 		if err != nil {
 			return "", err
 		}
@@ -417,7 +427,25 @@ func (a *Agent) defineViewTodoDetailsTool(g *genkit.Genkit) ai.ToolRef {
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("Todo Item ID: %d\n", item.ID))
 		sb.WriteString(fmt.Sprintf("Item: %s\n", item.Item))
+		sb.WriteString(fmt.Sprintf("Blocked: %t\n", item.TaskBlocked))
 		sb.WriteString(fmt.Sprintf("Details:\n%s\n", item.Details))
 		return sb.String(), nil
+	})
+}
+
+func (a *Agent) defineUpdateTodoBlockedStateTool(g *genkit.Genkit) ai.ToolRef {
+	type input struct {
+		ID          int  `json:"id"`
+		TaskBlocked bool `json:"task_blocked"`
+	}
+	return genkit.DefineTool[input, string](g, "update_todo_blocked_state", "Update the blocked state of a todo item (task_blocked can be true or false)", func(ctx *ai.ToolContext, i input) (string, error) {
+		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Updated todo item ID %d blocked state to %t", i.ID, i.TaskBlocked)); err != nil {
+			log.Printf("Failed to log action: %v", err)
+		}
+		err := a.DB.UpdateTodoBlockedState(a.Config.Email, i.ID, i.TaskBlocked)
+		if err != nil {
+			return "", err
+		}
+		return "Todo item blocked state updated successfully", nil
 	})
 }

@@ -29,9 +29,10 @@ type MailSummary struct {
 }
 
 type TodoItem struct {
-	ID      int    `json:"id"`
-	Item    string `json:"item"`
-	Details string `json:"details"`
+	ID          int    `json:"id"`
+	Item        string `json:"item"`
+	Details     string `json:"details"`
+	TaskBlocked bool   `json:"task_blocked"`
 }
 
 type DB struct {
@@ -78,9 +79,11 @@ func (d *DB) SetupSchema() error {
 		email TEXT NOT NULL,
 		item TEXT NOT NULL,
 		details TEXT DEFAULT '',
+		task_blocked BOOLEAN DEFAULT FALSE,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 	ALTER TABLE todo_items ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';
+	ALTER TABLE todo_items ADD COLUMN IF NOT EXISTS task_blocked BOOLEAN DEFAULT FALSE;
 	`
 	_, err := d.sqlDB.Exec(query)
 	return err
@@ -233,9 +236,9 @@ func (d *DB) WaitForMail(email string) error {
 	}
 }
 
-func (d *DB) AddTodoItem(email, item, details string) error {
-	query := `INSERT INTO todo_items (email, item, details) VALUES ($1, $2, $3)`
-	_, err := d.sqlDB.Exec(query, email, item, details)
+func (d *DB) AddTodoItem(email, item, details string, taskBlocked bool) error {
+	query := `INSERT INTO todo_items (email, item, details, task_blocked) VALUES ($1, $2, $3, $4)`
+	_, err := d.sqlDB.Exec(query, email, item, details, taskBlocked)
 	return err
 }
 
@@ -255,8 +258,12 @@ func (d *DB) RemoveTodoItem(email string, id int) error {
 	return nil
 }
 
-func (d *DB) GetTodoItems(email string) ([]TodoItem, error) {
-	query := `SELECT id, item FROM todo_items WHERE email = $1 ORDER BY id ASC`
+func (d *DB) GetTodoItems(email string, excludeBlocked bool) ([]TodoItem, error) {
+	query := `SELECT id, item, task_blocked FROM todo_items WHERE email = $1`
+	if excludeBlocked {
+		query += ` AND task_blocked = FALSE`
+	}
+	query += ` ORDER BY id ASC`
 	rows, err := d.sqlDB.Query(query, email)
 	if err != nil {
 		return nil, err
@@ -266,7 +273,7 @@ func (d *DB) GetTodoItems(email string) ([]TodoItem, error) {
 	var items []TodoItem
 	for rows.Next() {
 		var item TodoItem
-		if err := rows.Scan(&item.ID, &item.Item); err != nil {
+		if err := rows.Scan(&item.ID, &item.Item, &item.TaskBlocked); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -275,12 +282,28 @@ func (d *DB) GetTodoItems(email string) ([]TodoItem, error) {
 }
 
 func (d *DB) GetTodoItem(email string, id int) (*TodoItem, error) {
-	query := `SELECT id, item, details FROM todo_items WHERE id = $1 AND email = $2`
+	query := `SELECT id, item, details, task_blocked FROM todo_items WHERE id = $1 AND email = $2`
 	row := d.sqlDB.QueryRow(query, id, email)
 	var item TodoItem
-	err := row.Scan(&item.ID, &item.Item, &item.Details)
+	err := row.Scan(&item.ID, &item.Item, &item.Details, &item.TaskBlocked)
 	if err != nil {
 		return nil, err
 	}
 	return &item, nil
+}
+
+func (d *DB) UpdateTodoBlockedState(email string, id int, blocked bool) error {
+	query := `UPDATE todo_items SET task_blocked = $1 WHERE id = $2 AND email = $3`
+	res, err := d.sqlDB.Exec(query, blocked, id, email)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("todo item ID %d not found or not owned by you", id)
+	}
+	return nil
 }
