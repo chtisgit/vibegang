@@ -75,18 +75,27 @@ func (a *Agent) Start(ctx context.Context) error {
 			APIKey:   apiKey,
 			BaseURL:  "https://api.together.xyz/v1",
 		})
-	case "kimchi":
-		apiKey := os.Getenv("KIMCHI_API_KEY")
+	default:
+		apiKey := os.Getenv("OPENAI_API_KEY")
 		if apiKey == "" {
-			return fmt.Errorf("KIMCHI_API_KEY environment variable is required for model %s", modelName)
+			apiKey = os.Getenv("CUSTOM_API_KEY")
+		}
+		if apiKey == "" {
+			return fmt.Errorf("OPENAI_API_KEY or CUSTOM_API_KEY environment variable is required for model %s", modelName)
+		}
+		providerName := os.Getenv("CUSTOM_PROVIDER")
+		if providerName == "" {
+			return fmt.Errorf("CUSTOM_PROVIDER environment variable is required for model %s", modelName)
+		}
+		baseURL := os.Getenv("CUSTOM_BASE_URL")
+		if baseURL == "" {
+			return fmt.Errorf("CUSTOM_BASE_URL environment variable is required for model %s", modelName)
 		}
 		plugins = append(plugins, &compat_oai.OpenAICompatible{
-			Provider: "kimchi",
+			Provider: providerName,
 			APIKey:   apiKey,
-			BaseURL:  "https://llm.kimchi.dev/openai/v1",
+			BaseURL:  baseURL,
 		})
-	default:
-		return fmt.Errorf("unknown model provider %q for model %q", provider, modelName)
 	}
 
 	g := genkit.Init(ctx, genkit.WithPlugins(plugins...))

@@ -66,7 +66,7 @@ graph TD
 
 *   Go 1.20+
 *   Docker & Docker Compose (ensure the Docker daemon is running)
-*   LLM API Keys (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TOGETHER_API_KEY`, or `KIMCHI_API_KEY`)
+*   LLM API Keys (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TOGETHER_API_KEY`, or `CUSTOM_API_KEY`)
 
 ### Setup and Configuration
 
@@ -79,8 +79,8 @@ graph TD
 2.  Expose your LLM provider's API key on your host system:
     ```bash
     export GEMINI_API_KEY="your-gemini-key"
-    # Or for Kimchi:
-    export KIMCHI_API_KEY="your-kimchi-key"
+    # Or for Custom:
+    export CUSTOM_API_KEY="your-custom-key"
     ```
 
 ### Running the Harness
