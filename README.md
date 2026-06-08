@@ -110,6 +110,45 @@ You can interact directly with the agent team by opening the mailbox browser to 
 go run ./cmd/vibegang mail -c vibegang.yaml
 ```
 
+### Listing Todos & Emails via CLI
+
+You can query the team's current status and communications directly from the CLI:
+
+#### Listing Todos
+List todos for all agents or a specific agent account:
+```bash
+# List all todo items
+go run ./cmd/vibegang list-todos
+
+# List todo items for a specific email
+go run ./cmd/vibegang list-todos --email agent@vibegang.local
+```
+
+#### Listing Emails
+List email metadata (no bodies) with support for filtering:
+```bash
+# List all emails
+go run ./cmd/vibegang list-emails
+
+# List unread emails only
+go run ./cmd/vibegang list-emails --unread
+
+# List emails for a specific account
+go run ./cmd/vibegang list-emails --email agent@vibegang.local
+
+# List emails received in the last 2 hours (using duration)
+go run ./cmd/vibegang list-emails --since 2h
+
+# List emails received since a specific time
+go run ./cmd/vibegang list-emails --since 2026-06-08T15:00:00Z
+```
+
+#### Displaying a Specific Email
+To view the full details and body of a specific email, use the `show-email` command with the email ID:
+```bash
+go run ./cmd/vibegang show-email <email-id>
+```
+
 ---
 
 ## 📂 Repository Structure

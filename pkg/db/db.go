@@ -307,3 +307,94 @@ func (d *DB) UpdateTodoBlockedState(email string, id int, blocked bool) error {
 	}
 	return nil
 }
+
+type TodoItemWithOwner struct {
+	TodoItem
+	Email string `json:"email"`
+}
+
+func (d *DB) ListAllTodos(emailFilter string) ([]TodoItemWithOwner, error) {
+	query := `SELECT id, email, item, details, task_blocked FROM todo_items`
+	var args []interface{}
+	if emailFilter != "" {
+		query += ` WHERE email = $1`
+		args = append(args, emailFilter)
+	}
+	query += ` ORDER BY email ASC, id ASC`
+	rows, err := d.sqlDB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []TodoItemWithOwner
+	for rows.Next() {
+		var item TodoItemWithOwner
+		if err := rows.Scan(&item.ID, &item.Email, &item.Item, &item.Details, &item.TaskBlocked); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+type EmailDetails struct {
+	ID        int       `json:"id"`
+	From      string    `json:"from_email"`
+	To        string    `json:"to_email"`
+	Subject   string    `json:"subject"`
+	IsRead    bool      `json:"is_read"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+func (d *DB) ListAllEmails(accountFilter string, onlyUnread bool, sinceFilter time.Time) ([]EmailDetails, error) {
+	query := `SELECT id, from_email, to_email, subject, is_read, timestamp FROM emails WHERE 1=1`
+	var args []interface{}
+	placeholderIdx := 1
+
+	if accountFilter != "" {
+		query += fmt.Sprintf(` AND (to_email = $%d OR from_email = $%d)`, placeholderIdx, placeholderIdx)
+		args = append(args, accountFilter)
+		placeholderIdx++
+	}
+
+	if onlyUnread {
+		query += ` AND is_read = FALSE`
+	}
+
+	if !sinceFilter.IsZero() {
+		query += fmt.Sprintf(` AND timestamp >= $%d`, placeholderIdx)
+		args = append(args, sinceFilter)
+		placeholderIdx++
+	}
+
+	query += ` ORDER BY timestamp DESC`
+
+	rows, err := d.sqlDB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var emails []EmailDetails
+	for rows.Next() {
+		var email EmailDetails
+		if err := rows.Scan(&email.ID, &email.From, &email.To, &email.Subject, &email.IsRead, &email.Timestamp); err != nil {
+			return nil, err
+		}
+		emails = append(emails, email)
+	}
+	return emails, nil
+}
+
+func (d *DB) GetEmailByID(id int) (*Mail, error) {
+	query := `SELECT id, from_email, to_email, subject, body, is_read, timestamp FROM emails WHERE id = $1`
+	row := d.sqlDB.QueryRow(query, id)
+
+	var m Mail
+	err := row.Scan(&m.ID, &m.From, &m.To, &m.Subject, &m.Body, &m.IsRead, &m.Timestamp)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
