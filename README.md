@@ -83,6 +83,13 @@ graph TD
     export CUSTOM_API_KEY="your-custom-key"
     ```
 
+    #### Custom (OpenAI-Compatible) Provider Setup
+    If the model is set to `"custom"`, the harness configures a generic OpenAI-compatible backend using Genkit. You must set the following environment variables:
+    *   `CUSTOM_API_KEY` (or `OPENAI_API_KEY`): API key for authentication.
+    *   `CUSTOM_PROVIDER`: The provider name for Genkit (e.g. `openai`).
+    *   `CUSTOM_MODEL`: The specific model identifier to target (e.g. `openai/gpt-4o`).
+    *   `CUSTOM_BASE_URL`: The Base URL of the OpenAI-compatible API (e.g. `https://api.openai.com/v1`).
+
 ### Running the Harness
 
 To start the PostgreSQL database, build the agent Docker images, and spawn the agent workers:
