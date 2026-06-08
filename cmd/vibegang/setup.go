@@ -418,21 +418,21 @@ func runSetup() {
 					Email:        pmEmail,
 					Role:         "pm",
 					SystemPrompt: getExistingPrompt("pm", pmEmail, pmName, config.PMSystemPrompt),
-					Tools:        []string{"check_mailbox", "read_mail", "send_mail"},
+					Tools:        []string{"email", "todo"},
 				},
 				{
 					Name:         maintName,
 					Email:        maintEmail,
 					Role:         "maint",
 					SystemPrompt: getExistingPrompt("maint", maintEmail, maintName, config.MaintSystemPrompt),
-					Tools:        []string{"check_mailbox", "read_mail", "send_mail", "run_terminal_command"},
+					Tools:        []string{"email", "todo", "terminal_commands"},
 				},
 				{
 					Name:         secName,
 					Email:        secEmail,
 					Role:         "sec",
 					SystemPrompt: getExistingPrompt("sec", secEmail, secName, config.SecSystemPrompt),
-					Tools:        []string{"check_mailbox", "read_mail", "send_mail", "read_file", "run_terminal_command"},
+					Tools:        []string{"email", "todo", "filesystem", "terminal_commands"},
 				},
 			},
 		}
@@ -446,7 +446,7 @@ func runSetup() {
 					Email:        e,
 					Role:         "dev",
 					SystemPrompt: getExistingPrompt("dev", e, n, config.DevSystemPrompt),
-					Tools:        []string{"check_mailbox", "read_mail", "send_mail", "read_file", "write_file", "run_terminal_command"},
+					Tools:        []string{"email", "todo", "filesystem", "terminal_commands"},
 				})
 			}
 		}
@@ -460,7 +460,7 @@ func runSetup() {
 					Email:        e,
 					Role:         "test",
 					SystemPrompt: getExistingPrompt("test", e, n, config.TestSystemPrompt),
-					Tools:        []string{"check_mailbox", "read_mail", "send_mail", "read_file", "write_file", "run_terminal_command"},
+					Tools:        []string{"email", "todo", "filesystem", "terminal_commands"},
 				})
 			}
 		}

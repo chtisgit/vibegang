@@ -103,50 +103,31 @@ func (a *Agent) Start(ctx context.Context) error {
 	// Register tools
 	var allowedTools []ai.ToolRef
 
-	hasListTodo := false
-	hasAddTodo := false
-	hasRemoveTodo := false
-	hasViewTodo := false
-	for _, toolName := range a.Config.Tools {
-		switch toolName {
-		case "check_mailbox":
-			allowedTools = append(allowedTools, a.defineCheckMailboxTool(g))
-		case "read_mail":
-			allowedTools = append(allowedTools, a.defineReadMailTool(g))
-		case "send_mail":
-			allowedTools = append(allowedTools, a.defineSendMailTool(g))
-		case "read_file":
-			allowedTools = append(allowedTools, a.defineReadFileTool(g))
-		case "write_file":
-			allowedTools = append(allowedTools, a.defineWriteFileTool(g))
-		case "run_terminal_command":
-			allowedTools = append(allowedTools, a.defineTerminalTool(g))
-		case "list_todo_items":
-			allowedTools = append(allowedTools, a.defineListTodoTool(g))
-			hasListTodo = true
-		case "add_todo_item":
-			allowedTools = append(allowedTools, a.defineAddTodoTool(g))
-			hasAddTodo = true
-		case "remove_todo_item":
-			allowedTools = append(allowedTools, a.defineRemoveTodoTool(g))
-			hasRemoveTodo = true
-		case "view_todo_item_details":
-			allowedTools = append(allowedTools, a.defineViewTodoDetailsTool(g))
-			hasViewTodo = true
+	for _, toolGroup := range a.Config.Tools {
+		switch toolGroup {
+		case "email":
+			allowedTools = append(allowedTools,
+				a.defineCheckMailboxTool(g),
+				a.defineReadMailTool(g),
+				a.defineSendMailTool(g),
+			)
+		case "todo":
+			allowedTools = append(allowedTools,
+				a.defineListTodoTool(g),
+				a.defineAddTodoTool(g),
+				a.defineRemoveTodoTool(g),
+				a.defineViewTodoDetailsTool(g),
+			)
+		case "filesystem":
+			allowedTools = append(allowedTools,
+				a.defineReadFileTool(g),
+				a.defineWriteFileTool(g),
+			)
+		case "terminal_commands":
+			allowedTools = append(allowedTools,
+				a.defineTerminalTool(g),
+			)
 		}
-	}
-
-	if !hasListTodo {
-		allowedTools = append(allowedTools, a.defineListTodoTool(g))
-	}
-	if !hasAddTodo {
-		allowedTools = append(allowedTools, a.defineAddTodoTool(g))
-	}
-	if !hasRemoveTodo {
-		allowedTools = append(allowedTools, a.defineRemoveTodoTool(g))
-	}
-	if !hasViewTodo {
-		allowedTools = append(allowedTools, a.defineViewTodoDetailsTool(g))
 	}
 
 	if err := a.DB.LogAction(a.Config.Email, "Ready"); err != nil {

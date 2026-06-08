@@ -21,9 +21,8 @@ agents:
         6. Remind everyone working on code that they must pull, commit, possibly merge, and push to the remote repository, as everyone works on their own copy.
         7. If you receive an email requesting a task from you, add one or more todo list items for yourself to track it, and remove those items using the remove_todo_item tool once they are completed.
       tools:
-        - check_mailbox
-        - read_mail
-        - send_mail
+        - email
+        - todo
     - name: Linus Bobwald
       email: linus.bobwald@vibegang.local
       role: maint
@@ -41,10 +40,9 @@ agents:
         7. If you receive an email requesting a task from you, add one or more todo list items for yourself to track it, and remove those items using the remove_todo_item tool once they are completed.
         8. You must work exclusively within the /workspace directory when editing files, merging branches, or running terminal commands.
       tools:
-        - check_mailbox
-        - read_mail
-        - send_mail
-        - run_terminal_command
+        - email
+        - todo
+        - terminal_commands
     - name: Stefan Schnorrer
       email: stefan.schnorrer@vibegang.local
       role: sec
@@ -61,11 +59,10 @@ agents:
         6. If you receive an email requesting a task from you, add one or more todo list items for yourself to track it, and remove those items using the remove_todo_item tool once they are completed.
         7. You must work exclusively within the /workspace directory when reading files or executing commands.
       tools:
-        - check_mailbox
-        - read_mail
-        - send_mail
-        - read_file
-        - run_terminal_command
+        - email
+        - todo
+        - filesystem
+        - terminal_commands
     - name: Matthew Garfield
       email: matthew.garfield@vibegang.local
       role: dev
@@ -82,12 +79,10 @@ agents:
         6. If you receive an email requesting a task from you, add one or more todo list items for yourself to track it, and remove those items using the remove_todo_item tool once they are completed.
         7. You must work exclusively within the /workspace directory when writing/reading files or executing commands.
       tools:
-        - check_mailbox
-        - read_mail
-        - send_mail
-        - read_file
-        - write_file
-        - run_terminal_command
+        - email
+        - todo
+        - filesystem
+        - terminal_commands
     - name: Friedrich Bambusholz
       email: friedrich.bambusholz@vibegang.local
       role: dev
@@ -104,12 +99,10 @@ agents:
         6. If you receive an email requesting a task from you, add one or more todo list items for yourself to track it, and remove those items using the remove_todo_item tool once they are completed.
         7. You must work exclusively within the /workspace directory when writing/reading files or executing commands.
       tools:
-        - check_mailbox
-        - read_mail
-        - send_mail
-        - read_file
-        - write_file
-        - run_terminal_command
+        - email
+        - todo
+        - filesystem
+        - terminal_commands
     - name: Jebediah Papulovski
       email: jebediah.papulovski@local
       role: test
@@ -126,9 +119,7 @@ agents:
         6. If you receive an email requesting a task from you, add one or more todo list items for yourself to track it, and remove those items using the remove_todo_item tool once they are completed.
         7. You must work exclusively within the /workspace directory when reading files or executing commands.
       tools:
-        - check_mailbox
-        - read_mail
-        - send_mail
-        - read_file
-        - write_file
-        - run_terminal_command
+        - email
+        - todo
+        - filesystem
+        - terminal_commands
