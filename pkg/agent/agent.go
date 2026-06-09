@@ -19,6 +19,7 @@ import (
 	"github.com/firebase/genkit/go/plugins/compat_oai/anthropic"
 	"github.com/firebase/genkit/go/plugins/compat_oai/openai"
 	"github.com/firebase/genkit/go/plugins/googlegenai"
+	"github.com/invopop/jsonschema"
 )
 
 type Agent struct {
@@ -235,8 +236,7 @@ func (a *Agent) Start(ctx context.Context) error {
 // -- Tool Definitions --
 
 func (a *Agent) defineCheckMailboxTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct{}
-	return genkit.DefineTool[input, string](g, "check_mailbox", "Check the agent's mailbox for unread mail", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[checkMailboxInput, string](g, "check_mailbox", "Check the agent's mailbox for unread mail", func(ctx *ai.ToolContext, i checkMailboxInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, "Checked mailbox"); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -257,10 +257,7 @@ func (a *Agent) defineCheckMailboxTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineReadMailTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct {
-		ID int `json:"id"`
-	}
-	return genkit.DefineTool[input, string](g, "read_mail", "Read the full body of a specific email by ID", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[readMailInput, string](g, "read_mail", "Read the full body of a specific email by ID", func(ctx *ai.ToolContext, i readMailInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Read email ID %d", i.ID)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -280,12 +277,7 @@ func (a *Agent) defineReadMailTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineSendMailTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct {
-		To      string `json:"to"`
-		Subject string `json:"subject"`
-		Body    string `json:"body"`
-	}
-	return genkit.DefineTool[input, string](g, "send_mail", "Send an email to another agent", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[sendMailInput, string](g, "send_mail", "Send an email to another agent", func(ctx *ai.ToolContext, i sendMailInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Sent email to %s with subject '%s'", i.To, i.Subject)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -298,10 +290,7 @@ func (a *Agent) defineSendMailTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineReadFileTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct {
-		Path string `json:"path"`
-	}
-	return genkit.DefineTool[input, string](g, "read_file", "Read a file from the workspace", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[readFileInput, string](g, "read_file", "Read a file from the workspace", func(ctx *ai.ToolContext, i readFileInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Read file '%s'", i.Path)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -314,11 +303,7 @@ func (a *Agent) defineReadFileTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineWriteFileTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct {
-		Path    string `json:"path"`
-		Content string `json:"content"`
-	}
-	return genkit.DefineTool[input, string](g, "write_file", "Write or overwrite a file in the workspace", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[writeFileInput, string](g, "write_file", "Write or overwrite a file in the workspace", func(ctx *ai.ToolContext, i writeFileInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Wrote file '%s' (content length: %d)", i.Path, len(i.Content))); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -331,10 +316,7 @@ func (a *Agent) defineWriteFileTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineTerminalTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct {
-		Command string `json:"command"`
-	}
-	return genkit.DefineTool[input, string](g, "run_terminal_command", "Run a bash command in the workspace. Do not use interactive commands. Git is available.", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[terminalInput, string](g, "run_terminal_command", "Run a bash command in the workspace. Do not use interactive commands. Git is available.", func(ctx *ai.ToolContext, i terminalInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Ran terminal command: %s", i.Command)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -350,8 +332,7 @@ func (a *Agent) defineTerminalTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct{}
-	return genkit.DefineTool[input, string](g, "list_todo_items", "List outstanding todo items for the agent", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[listTodoInput, string](g, "list_todo_items", "List outstanding todo items for the agent", func(ctx *ai.ToolContext, i listTodoInput) (string, error) {
 		items, err := a.DB.GetTodoItems(a.Config.Email, false)
 		if err != nil {
 			if err := a.DB.LogAction(a.Config.Email, "Listed todo items (error)"); err != nil {
@@ -379,12 +360,7 @@ func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineAddTodoTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct {
-		Item        string `json:"item"`
-		Details     string `json:"details"`
-		TaskBlocked bool   `json:"task_blocked"`
-	}
-	return genkit.DefineTool[input, string](g, "add_todo_item", "Add a new item to the agent's todo list", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[addTodoInput, string](g, "add_todo_item", "Add a new item to the agent's todo list", func(ctx *ai.ToolContext, i addTodoInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Added todo item: %s (Details: %s, Blocked: %t)", i.Item, i.Details, i.TaskBlocked)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -397,10 +373,7 @@ func (a *Agent) defineAddTodoTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineRemoveTodoTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct {
-		ID int `json:"id"`
-	}
-	return genkit.DefineTool[input, string](g, "remove_todo_item", "Remove a todo item from the agent's list by ID", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[removeTodoInput, string](g, "remove_todo_item", "Remove a todo item from the agent's list by ID", func(ctx *ai.ToolContext, i removeTodoInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Removed todo item ID %d", i.ID)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -413,10 +386,7 @@ func (a *Agent) defineRemoveTodoTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineViewTodoDetailsTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct {
-		ID int `json:"id"`
-	}
-	return genkit.DefineTool[input, string](g, "view_todo_item_details", "View the detailed description of a specific todo item by ID", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[viewTodoDetailsInput, string](g, "view_todo_item_details", "View the detailed description of a specific todo item by ID", func(ctx *ai.ToolContext, i viewTodoDetailsInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Viewed todo item details for ID %d", i.ID)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -434,11 +404,7 @@ func (a *Agent) defineViewTodoDetailsTool(g *genkit.Genkit) ai.ToolRef {
 }
 
 func (a *Agent) defineUpdateTodoBlockedStateTool(g *genkit.Genkit) ai.ToolRef {
-	type input struct {
-		ID          int  `json:"id"`
-		TaskBlocked bool `json:"task_blocked"`
-	}
-	return genkit.DefineTool[input, string](g, "update_todo_blocked_state", "Update the blocked state of a todo item (task_blocked can be true or false)", func(ctx *ai.ToolContext, i input) (string, error) {
+	return genkit.DefineTool[updateTodoBlockedStateInput, string](g, "update_todo_blocked_state", "Update the blocked state of a todo item (task_blocked can be true or false)", func(ctx *ai.ToolContext, i updateTodoBlockedStateInput) (string, error) {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Updated todo item ID %d blocked state to %t", i.ID, i.TaskBlocked)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
@@ -448,4 +414,118 @@ func (a *Agent) defineUpdateTodoBlockedStateTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		return "Todo item blocked state updated successfully", nil
 	})
+}
+
+// -- Tool Input Structs --
+
+type checkMailboxInput struct{}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (checkMailboxInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type readMailInput struct {
+	ID int `json:"id"`
+}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (readMailInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type sendMailInput struct {
+	To      string `json:"to"`
+	Subject string `json:"subject"`
+	Body    string `json:"body"`
+}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (sendMailInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type readFileInput struct {
+	Path string `json:"path"`
+}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (readFileInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type writeFileInput struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (writeFileInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type terminalInput struct {
+	Command string `json:"command"`
+}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (terminalInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type listTodoInput struct{}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (listTodoInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type addTodoInput struct {
+	Item        string `json:"item"`
+	Details     string `json:"details"`
+	TaskBlocked bool   `json:"task_blocked"`
+}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (addTodoInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type removeTodoInput struct {
+	ID int `json:"id"`
+}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (removeTodoInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type viewTodoDetailsInput struct {
+	ID int `json:"id"`
+}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (viewTodoDetailsInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
+}
+
+type updateTodoBlockedStateInput struct {
+	ID          int  `json:"id"`
+	TaskBlocked bool `json:"task_blocked"`
+}
+
+// JSONSchemaExtend allows additional properties in the generated schema to prevent Genkit validation failures
+// if LLM agents pass extra parameters.
+func (updateTodoBlockedStateInput) JSONSchemaExtend(schema *jsonschema.Schema) {
+	schema.AdditionalProperties = nil
 }
