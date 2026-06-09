@@ -242,7 +242,7 @@ func (a *Agent) defineCheckMailboxTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		summaries, err := a.DB.GetUnreadSummary(a.Config.Email)
 		if err != nil {
-			return "", err
+			return fmt.Sprintf("Error checking mailbox: %v", err), nil
 		}
 		if len(summaries) == 0 {
 			return "You have 0 unread emails.", nil
@@ -266,7 +266,7 @@ func (a *Agent) defineReadMailTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		mail, err := a.DB.ReadMail(a.Config.Email, i.ID)
 		if err != nil {
-			return "", err
+			return fmt.Sprintf("Error reading mail: %v", err), nil
 		}
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("Email ID: %d\n", mail.ID))
@@ -291,7 +291,7 @@ func (a *Agent) defineSendMailTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		err := a.DB.SendMail(a.Config.Email, i.To, i.Subject, i.Body)
 		if err != nil {
-			return "", err
+			return fmt.Sprintf("Error sending mail: %v", err), nil
 		}
 		return "Email sent successfully", nil
 	})
@@ -307,7 +307,7 @@ func (a *Agent) defineReadFileTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		b, err := os.ReadFile(i.Path)
 		if err != nil {
-			return "", err
+			return fmt.Sprintf("Error reading file: %v", err), nil
 		}
 		return string(b), nil
 	})
@@ -324,7 +324,7 @@ func (a *Agent) defineWriteFileTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		err := os.WriteFile(i.Path, []byte(i.Content), 0644)
 		if err != nil {
-			return "", err
+			return fmt.Sprintf("Error writing file: %v", err), nil
 		}
 		return "File written successfully", nil
 	})
@@ -357,7 +357,7 @@ func (a *Agent) defineListTodoTool(g *genkit.Genkit) ai.ToolRef {
 			if err := a.DB.LogAction(a.Config.Email, "Listed todo items (error)"); err != nil {
 				log.Printf("Failed to log action: %v", err)
 			}
-			return "", err
+			return fmt.Sprintf("Error listing todo items: %v", err), nil
 		}
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Listed todo items (%d)", len(items))); err != nil {
 			log.Printf("Failed to log action: %v", err)
@@ -390,7 +390,7 @@ func (a *Agent) defineAddTodoTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		err := a.DB.AddTodoItem(a.Config.Email, i.Item, i.Details, i.TaskBlocked)
 		if err != nil {
-			return "", err
+			return fmt.Sprintf("Error adding todo item: %v", err), nil
 		}
 		return "Todo item added successfully", nil
 	})
@@ -406,7 +406,7 @@ func (a *Agent) defineRemoveTodoTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		err := a.DB.RemoveTodoItem(a.Config.Email, i.ID)
 		if err != nil {
-			return "", err
+			return fmt.Sprintf("Error removing todo item: %v", err), nil
 		}
 		return "Todo item removed successfully", nil
 	})
@@ -422,7 +422,7 @@ func (a *Agent) defineViewTodoDetailsTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		item, err := a.DB.GetTodoItem(a.Config.Email, i.ID)
 		if err != nil {
-			return "", err
+			return fmt.Sprintf("Error viewing todo item details: %v", err), nil
 		}
 		var sb strings.Builder
 		sb.WriteString(fmt.Sprintf("Todo Item ID: %d\n", item.ID))
@@ -444,7 +444,7 @@ func (a *Agent) defineUpdateTodoBlockedStateTool(g *genkit.Genkit) ai.ToolRef {
 		}
 		err := a.DB.UpdateTodoBlockedState(a.Config.Email, i.ID, i.TaskBlocked)
 		if err != nil {
-			return "", err
+			return fmt.Sprintf("Error updating todo blocked state: %v", err), nil
 		}
 		return "Todo item blocked state updated successfully", nil
 	})
