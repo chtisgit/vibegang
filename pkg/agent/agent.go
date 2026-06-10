@@ -168,6 +168,9 @@ func (a *Agent) Start(ctx context.Context) error {
 		20 * time.Minute,
 	})
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		summaries, err := a.DB.GetUnreadSummary(a.Config.Email)
 		if err != nil {
 			log.Printf("Error getting summaries: %v", err)
@@ -213,7 +216,7 @@ func (a *Agent) Start(ctx context.Context) error {
 			ai.WithTools(allowedTools...),
 			ai.WithMaxTurns(64),
 		)
-		if resp != nil {
+		if resp != nil && len(resp.History()) > 0 {
 			history = resp.History()
 			a.saveHistory(history)
 		}

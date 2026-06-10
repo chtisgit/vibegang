@@ -42,22 +42,29 @@ func main() {
 	}
 	defer dbClient.Close()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Signal handling to log exit state
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigChan
-		log.Printf("Received signal %v, exiting...", sig)
-		dbClient.LogAction(email, fmt.Sprintf("Exited (Signal: %v)", sig))
-		os.Exit(0)
+		log.Printf("Received signal %v, initiating shutdown...", sig)
+		if err := dbClient.LogAction(email, fmt.Sprintf("Exited (Signal: %v)", sig)); err != nil {
+			log.Printf("Failed to log action: %v", err)
+		}
+		cancel()
 	}()
 
 	agentObj := agent.NewAgent(cfg, dbClient)
 
-	ctx := context.Background()
-
 	log.Printf("Starting agent %s (%s)...", name, role)
 	if err := agentObj.Start(ctx); err != nil {
-		log.Fatalf("Agent error: %v", err)
+		if err == context.Canceled {
+			log.Println("Agent shutdown complete.")
+		} else {
+			log.Fatalf("Agent error: %v", err)
+		}
 	}
 }
