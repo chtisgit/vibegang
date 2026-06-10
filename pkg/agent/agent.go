@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -29,6 +30,17 @@ func NewAgent(cfg config.AgentConfig, dbClient *db.DB) *Agent {
 	return &Agent{
 		Config: cfg,
 		DB:     dbClient,
+	}
+}
+
+func (a *Agent) saveHistory(history []*ai.Message) {
+	serialized, err := json.Marshal(history)
+	if err != nil {
+		log.Printf("Failed to marshal history for agent %s: %v", a.Config.Name, err)
+		return
+	}
+	if err := a.DB.SaveAgentHistory(a.Config.Email, serialized); err != nil {
+		log.Printf("Failed to save history for agent %s to DB: %v", a.Config.Name, err)
 	}
 }
 
@@ -139,6 +151,16 @@ func (a *Agent) Start(ctx context.Context) error {
 	}
 
 	var history []*ai.Message
+	historyBytes, err := a.DB.LoadAgentHistory(a.Config.Email)
+	if err != nil {
+		log.Printf("Failed to load agent history from DB for %s: %v", a.Config.Email, err)
+	} else if len(historyBytes) > 0 {
+		if err := json.Unmarshal(historyBytes, &history); err != nil {
+			log.Printf("Failed to unmarshal agent history for %s: %v", a.Config.Email, err)
+		} else {
+			log.Printf("Loaded %d historic messages for agent %s from DB", len(history), a.Config.Name)
+		}
+	}
 	b := NewBackoff([]time.Duration{
 		30 * time.Second,
 		2 * time.Minute,
@@ -204,6 +226,7 @@ func (a *Agent) Start(ctx context.Context) error {
 		log.Printf("Agent %s action completed: %s", a.Config.Name, resp.Text())
 
 		history = resp.History()
+		a.saveHistory(history)
 
 		inputLength := resp.Usage.InputTokens + resp.Usage.CachedContentTokens
 		if inputLength > 200_000 {
@@ -226,6 +249,7 @@ func (a *Agent) Start(ctx context.Context) error {
 				history = []*ai.Message{
 					ai.NewModelTextMessage(resp2.Text()),
 				}
+				a.saveHistory(history)
 			}
 		}
 	}

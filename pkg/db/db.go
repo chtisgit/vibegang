@@ -84,6 +84,12 @@ func (d *DB) SetupSchema() error {
 	);
 	ALTER TABLE todo_items ADD COLUMN IF NOT EXISTS details TEXT DEFAULT '';
 	ALTER TABLE todo_items ADD COLUMN IF NOT EXISTS task_blocked BOOLEAN DEFAULT FALSE;
+
+	CREATE TABLE IF NOT EXISTS agent_history (
+		agent_email TEXT PRIMARY KEY,
+		history JSONB NOT NULL,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);
 	`
 	_, err := d.sqlDB.Exec(query)
 	return err
@@ -94,7 +100,7 @@ func (d *DB) ClearTables() error {
 		return err
 	}
 	query := `
-	TRUNCATE TABLE emails, agent_logs, todo_items RESTART IDENTITY CASCADE;
+	TRUNCATE TABLE emails, agent_logs, todo_items, agent_history RESTART IDENTITY CASCADE;
 	`
 	_, err := d.sqlDB.Exec(query)
 	return err
@@ -397,4 +403,25 @@ func (d *DB) GetEmailByID(id int) (*Mail, error) {
 		return nil, err
 	}
 	return &m, nil
+}
+
+func (d *DB) SaveAgentHistory(agentEmail string, historyJSON []byte) error {
+	query := `
+	INSERT INTO agent_history (agent_email, history, updated_at)
+	VALUES ($1, $2, CURRENT_TIMESTAMP)
+	ON CONFLICT (agent_email)
+	DO UPDATE SET history = $2, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := d.sqlDB.Exec(query, agentEmail, historyJSON)
+	return err
+}
+
+func (d *DB) LoadAgentHistory(agentEmail string) ([]byte, error) {
+	query := `SELECT history FROM agent_history WHERE agent_email = $1`
+	var historyJSON []byte
+	err := d.sqlDB.QueryRow(query, agentEmail).Scan(&historyJSON)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return historyJSON, err
 }
