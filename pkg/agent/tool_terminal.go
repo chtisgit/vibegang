@@ -1,9 +1,11 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os/exec"
+	"time"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
@@ -15,7 +17,10 @@ func (a *Agent) defineTerminalTool(g *genkit.Genkit) ai.ToolRef {
 		if err := a.DB.LogAction(a.Config.Email, fmt.Sprintf("Ran terminal command: %s", i.Command)); err != nil {
 			log.Printf("Failed to log action: %v", err)
 		}
-		cmd := exec.CommandContext(ctx, "bash", "-c", i.Command)
+		cmdCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+
+		cmd := exec.CommandContext(cmdCtx, "bash", "-c", i.Command)
 		cmd.Dir = "/workspace"
 		out, err := cmd.CombinedOutput()
 		outputStr := string(out)
