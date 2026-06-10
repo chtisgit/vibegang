@@ -213,6 +213,10 @@ func (a *Agent) Start(ctx context.Context) error {
 			ai.WithTools(allowedTools...),
 			ai.WithMaxTurns(64),
 		)
+		if resp != nil {
+			history = resp.History()
+			a.saveHistory(history)
+		}
 
 		if err != nil {
 			log.Printf("Generation error: %v", err)
@@ -224,9 +228,6 @@ func (a *Agent) Start(ctx context.Context) error {
 		}
 		b.Reset()
 		log.Printf("Agent %s action completed: %s", a.Config.Name, resp.Text())
-
-		history = resp.History()
-		a.saveHistory(history)
 
 		inputLength := resp.Usage.InputTokens + resp.Usage.CachedContentTokens
 		if inputLength > 200_000 {
